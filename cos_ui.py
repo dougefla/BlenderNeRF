@@ -25,6 +25,7 @@ class COS_UI(bpy.types.Panel):
         layout.prop(scene, 'sphere_radius')
         layout.prop(scene, 'focal')
         layout.prop(scene, 'seed')
+        layout.prop(scene, 'sequential_trajectory', toggle=True)
 
         layout.prop(scene, 'cos_nb_frames')
         layout.prop(scene, 'upper_views', toggle=True)

@@ -85,18 +85,61 @@ def delete_camera(scene, name):
 
 # non uniform sampling when stretched or squeezed sphere
 def sample_from_sphere(scene):
-    seed = (2654435761 * (scene.seed + 1)) ^ (805459861 * (scene.frame_current + 1))
-    rng = random.Random(seed) # random number generator
+    if scene.sequential_trajectory:
+        # Sequential trajectory: evenly distribute cameras around the sphere
+        total_frames = scene.cos_nb_frames
+        current_frame_index = scene.frame_current - scene.frame_start
+        
+        # Ensure we stay within bounds
+        if current_frame_index < 0:
+            current_frame_index = 0
+        elif current_frame_index >= total_frames:
+            current_frame_index = total_frames - 1
+        
+        # Calculate position using spiral pattern for better coverage
+        if total_frames > 1:
+            progress = current_frame_index / (total_frames - 1)  # 0 to 1
+        else:
+            progress = 0
+        
+        # Sequential trajectory with fewer rotations, starting from horizontal
+        
+        # Reduce number of rotations - make fewer spins around the sphere
+        max_rotations = 1.5  # 1.5 full rotations instead of many
+        theta = progress * 2 * math.pi * max_rotations
+        
+        # Vary elevation (phi) to cover different heights, starting horizontal
+        if scene.upper_views:
+            # Upper hemisphere: start horizontal, go up gradually
+            phi_start = math.pi / 2  # Start at horizon (90 degrees)
+            phi_end = math.pi / 6    # End at 30 degrees from top
+            phi = phi_start - progress * (phi_start - phi_end)
+        else:
+            # Full sphere: start horizontal, vary up and down
+            phi_center = math.pi / 2  # Horizontal center
+            phi_range = math.pi * 0.3  # ±54 degrees from horizontal
+            # Use sine wave for smooth vertical movement
+            phi = phi_center + math.sin(progress * math.pi * 2) * phi_range * 0.5
+        
+        # Convert spherical to cartesian coordinates
+        unit_x = math.cos(theta) * math.sin(phi)
+        unit_y = math.sin(theta) * math.sin(phi)
+        unit_z = abs(math.cos(phi)) if scene.upper_views else math.cos(phi)
+        unit = mathutils.Vector((unit_x, unit_y, unit_z))
+    else:
+        # Original random sampling
+        seed = (2654435761 * (scene.seed + 1)) ^ (805459861 * (scene.frame_current + 1))
+        rng = random.Random(seed) # random number generator
 
-    # sample random angles
-    theta = rng.random() * 2 * math.pi
-    phi = math.acos(1 - 2 * rng.random()) # ensure uniform sampling from unit sphere
+        # sample random angles
+        theta = rng.random() * 2 * math.pi
+        phi = math.acos(1 - 2 * rng.random()) # ensure uniform sampling from unit sphere
 
-    # uniform sample from unit sphere, given theta and phi
-    unit_x = math.cos(theta) * math.sin(phi)
-    unit_y = math.sin(theta) * math.sin(phi)
-    unit_z = abs( math.cos(phi) ) if scene.upper_views else math.cos(phi)
-    unit = mathutils.Vector((unit_x, unit_y, unit_z))
+        # uniform sample from unit sphere, given theta and phi
+        unit_x = math.cos(theta) * math.sin(phi)
+        unit_y = math.sin(theta) * math.sin(phi)
+        unit_z = abs( math.cos(phi) ) if scene.upper_views else math.cos(phi)
+        unit = mathutils.Vector((unit_x, unit_y, unit_z))
 
     # ellipsoid sample : center + rotation @ radius * unit sphere
     point = scene.sphere_radius * mathutils.Vector(scene.sphere_scale) * unit
